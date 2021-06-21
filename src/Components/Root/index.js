@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 
 import { useQuery } from '@apollo/client'
@@ -14,7 +14,10 @@ import { Column, Container, Post, PostAuthor, PostBody } from './styles'
 import ExpensiveTree from '../ExpensiveTree'
 
 function Root() {
+  const countRef = useRef(0)
   const [count, setCount] = useState(0)
+  const [page, setPage] = useState(1)
+  const [limit] = useState(5)
   const [fields, setFields] = useState([
     {
       name: faker.name.findName(),
@@ -23,7 +26,7 @@ function Root() {
   ])
 
   const [value, setValue] = useState('')
-  const { data, loading } = useQuery(postsQuery)
+  const { data, loading } = useQuery(postsQuery, { variables: { page, limit } })
 
   function handlePush() {
     setFields([{ name: faker.name.findName(), id: nanoid() }, ...fields])
@@ -31,10 +34,17 @@ function Root() {
 
   function handleAlertClick() {
     setTimeout(() => {
-      alert(`You clicked ${count} times`)
+      alert(`You clicked ${countRef.current} times`)
     }, 2500)
   }
 
+  function handleSelectedPage(seletedPage) {
+    setPage(+seletedPage.target.value)
+  }
+
+  const totalPosts = data?.posts?.meta?.totalCount
+  const totalPages = totalPosts / limit
+  const pages = Array.from({ length: totalPages }, (v, i) => i + 1)
   const posts = data?.posts.data || []
 
   return (
@@ -44,7 +54,7 @@ function Root() {
         {loading
           ? 'Loading...'
           : posts.map(post => (
-              <Post mx={4}>
+              <Post key={post.id} mx={4}>
                 <NavLink href={POST(post.id)} to={POST(post.id)}>
                   {post.title}
                 </NavLink>
@@ -52,7 +62,25 @@ function Root() {
                 <PostBody>{post.body}</PostBody>
               </Post>
             ))}
-        <div>Pagination here</div>
+        <div>
+          {!isNaN(totalPosts) && (
+            <div>
+              <label>Page:</label>
+              <div>
+                {pages.map(pageNo => (
+                  <button
+                    key={pageNo}
+                    type="button"
+                    value={pageNo}
+                    onClick={handleSelectedPage}
+                  >
+                    {pageNo}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </Column>
       <Column>
         <h4>Slow rendering</h4>
@@ -69,7 +97,13 @@ function Root() {
 
         <h4>Closures</h4>
         <p>You clicked {count} times</p>
-        <button type="button" onClick={() => setCount(count + 1)}>
+        <button
+          type="button"
+          onClick={() => {
+            countRef.current = count + 1
+            setCount(count + 1)
+          }}
+        >
           Click me
         </button>
         <button type="button" onClick={handleAlertClick}>
@@ -83,8 +117,8 @@ function Root() {
           Add more
         </button>
         <ol>
-          {fields.map((field, index) => (
-            <li key={index}>
+          {fields.map(field => (
+            <li key={field.id}>
               {field.name}:<br />
               <input type="text" />
             </li>
